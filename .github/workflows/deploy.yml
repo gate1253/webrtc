@@ -1,0 +1,44 @@
+# d:\workspace\gate1253\webrtc\.github\workflows\deploy.yml
+name: Deploy webrtc Worker
+
+on:
+  push:
+    branches:
+      - main
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repo
+        uses: actions/checkout@v3
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v3
+        with:
+          node-version: '20'
+          cache: 'npm'
+
+      - name: Create wrangler.toml from secrets
+        env:
+          CF_ACCOUNT_ID: ${{ secrets.CF_ACCOUNT_ID }}
+          WEBRTC_KV: ${{ secrets.WEBRTC_KV }}
+        run: |
+          cat > wrangler.toml <<EOF
+          name = "webrtc"
+          main = "workers/webrtc-worker.js"
+          type = "module"
+          compatibility_date = "2025-11-08"
+          account_id = ""
+          kv_namespaces = [
+            { binding = "WEBRTC_KV", id = "" }
+          ]
+          EOF
+          echo "wrangler.toml created."
+
+      - name: Install wrangler CLI and publish
+        env:
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CF_API_TOKEN }}
+        run: |
+          npm install -g wrangler
+          wrangler deploy
