@@ -40,7 +40,7 @@ export default {
                 // KV에 저장 (TTL 10분 설정으로 오래된 방 자동 정리)
                 await env.WEBRTC_KV.put(room, JSON.stringify(messages), { expirationTtl: 600 });
 
-                return new Response(JSON.stringify({ success: true }), { status: 200, headers: corsHeaders() });
+                return new Response(JSON.stringify({ success: true, messages }), { status: 200, headers: corsHeaders() });
             } catch (err) {
                 return new Response(JSON.stringify({ error: err.message }), { status: 500, headers: corsHeaders() });
             }
