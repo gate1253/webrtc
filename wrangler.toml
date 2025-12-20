@@ -1,0 +1,9 @@
+name = "webrtc"
+main = "workers/webrtc-worker.js"
+compatibility_date = "2023-12-01"
+
+# res302-worker가 사용하는 RES302_KV 네임스페이스를 이 워커에 바인딩합니다.
+# Cloudflare 대시보드에서 'RES302_KV' 네임스페이스의 실제 ID를 찾아 아래 'id' 값을 교체해야 합니다.
+[[kv_namespaces]]
+binding = "WEBRTC_KV"
+id = "${CF_KV_NAMESPACE_ID}"
