@@ -29,18 +29,16 @@ export default {
                     return new Response('Missing room', { status: 400, headers: corsHeaders() });
                 }
 
-                // 기존 메시지 가져오기 (없으면 빈 배열)
-                let messages = await env.WEBRTC_KV.get(room, { type: 'json' });
-                if (!messages) messages = [];
+                // 개별 메시지를 별도의 키로 저장하여 경쟁 상태(Race Condition) 방지
+                // 키 형식: room:timestamp:random
+                const timestamp = Date.now();
+                const random = Math.random().toString(36).substring(2, 10);
+                const key = `${room}:${timestamp}:${random}`;
 
-                // 메시지에 서버 수신 타임스탬프 추가
-                data.timestamp = Date.now();
-                messages.push(data);
+                data.timestamp = timestamp;
+                await env.WEBRTC_KV.put(key, JSON.stringify(data), { expirationTtl: 600 });
 
-                // KV에 저장 (TTL 10분 설정으로 오래된 방 자동 정리)
-                await env.WEBRTC_KV.put(room, JSON.stringify(messages), { expirationTtl: 600 });
-
-                return new Response(JSON.stringify({ success: true, messages }), { status: 200, headers: corsHeaders() });
+                return new Response(JSON.stringify({ success: true }), { status: 200, headers: corsHeaders() });
             } catch (err) {
                 return new Response(JSON.stringify({ error: err.message }), { status: 500, headers: corsHeaders() });
             }
@@ -53,9 +51,18 @@ export default {
                 return new Response('Missing room param', { status: 400, headers: corsHeaders() });
             }
 
-            // 해당 방의 모든 메시지 반환
-            const messages = await env.WEBRTC_KV.get(room, { type: 'json' });
-            return new Response(JSON.stringify(messages || []), { 
+            // 해당 방의 모든 메시지 키 조회
+            const list = await env.WEBRTC_KV.list({ prefix: `${room}:` });
+            
+            // 병렬로 메시지 내용 가져오기
+            const messages = await Promise.all(list.keys.map(async (key) => {
+                return await env.WEBRTC_KV.get(key.name, { type: 'json' });
+            }));
+
+            // null 값 제거 및 타임스탬프 정렬
+            const validMessages = messages.filter(msg => msg !== null).sort((a, b) => a.timestamp - b.timestamp);
+
+            return new Response(JSON.stringify(validMessages), { 
                 status: 200, 
                 headers: Object.assign({ 'Content-Type': 'application/json' }, corsHeaders()) 
             });
