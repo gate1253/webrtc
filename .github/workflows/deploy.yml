@@ -29,9 +29,9 @@ jobs:
           main = "workers/webrtc-worker.js"
           type = "module"
           compatibility_date = "2025-11-08"
-          account_id = ""
+          account_id = "${CF_ACCOUNT_ID}"
           kv_namespaces = [
-            { binding = "WEBRTC_KV", id = "" }
+            { binding = "WEBRTC_KV", id = "${WEBRTC_KV}" }
           ]
           EOF
           echo "wrangler.toml created."
