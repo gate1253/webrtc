@@ -29,6 +29,18 @@ export default {
                     return new Response('Missing room', { status: 400, headers: corsHeaders() });
                 }
 
+                // ready 신호일 경우 접속 인원 체크 (최대 2명)
+                if (data.type === 'ready') {
+                    const list = await env.WEBRTC_KV.list({ prefix: `${room}:` });
+                    const messages = await Promise.all(list.keys.map(key => env.WEBRTC_KV.get(key.name, { type: 'json' })));
+                    const clientIds = new Set();
+                    messages.forEach(msg => { if (msg && msg.clientId) clientIds.add(msg.clientId); });
+
+                    if (clientIds.size >= 2 && !clientIds.has(data.clientId)) {
+                        return new Response(JSON.stringify({ error: 'Room is full' }), { status: 403, headers: corsHeaders() });
+                    }
+                }
+
                 // 개별 메시지를 별도의 키로 저장하여 경쟁 상태(Race Condition) 방지
                 // 키 형식: room:timestamp:random
                 const timestamp = Date.now();
