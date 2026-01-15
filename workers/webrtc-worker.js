@@ -18,25 +18,25 @@ export default {
         }
 
         const url = new URL(request.url);
-        
+
         // POST: 메시지 저장 (Signaling)
         if (request.method === 'POST') {
             try {
                 const data = await request.json();
                 const room = data.room;
-                
+
                 if (!room) {
                     return new Response('Missing room', { status: 400, headers: corsHeaders() });
                 }
 
-                // ready 신호일 경우 접속 인원 체크 (최대 2명)
-                if (data.type === 'ready') {
+                // join 신호일 경우 접속 인원 체크 (최대 10명으로 완화)
+                if (data.type === 'join') {
                     const list = await env.WEBRTC_KV.list({ prefix: `${room}:` });
                     const messages = await Promise.all(list.keys.map(key => env.WEBRTC_KV.get(key.name, { type: 'json' })));
                     const clientIds = new Set();
                     messages.forEach(msg => { if (msg && msg.clientId) clientIds.add(msg.clientId); });
 
-                    if (clientIds.size >= 2 && !clientIds.has(data.clientId)) {
+                    if (clientIds.size >= 10 && !clientIds.has(data.clientId)) {
                         return new Response(JSON.stringify({ error: 'Room is full' }), { status: 403, headers: corsHeaders() });
                     }
                 }
@@ -65,7 +65,7 @@ export default {
 
             // 해당 방의 모든 메시지 키 조회
             const list = await env.WEBRTC_KV.list({ prefix: `${room}:` });
-            
+
             // 병렬로 메시지 내용 가져오기
             const messages = await Promise.all(list.keys.map(async (key) => {
                 return await env.WEBRTC_KV.get(key.name, { type: 'json' });
@@ -74,9 +74,9 @@ export default {
             // null 값 제거 및 타임스탬프 정렬
             const validMessages = messages.filter(msg => msg !== null).sort((a, b) => a.timestamp - b.timestamp);
 
-            return new Response(JSON.stringify(validMessages), { 
-                status: 200, 
-                headers: Object.assign({ 'Content-Type': 'application/json' }, corsHeaders()) 
+            return new Response(JSON.stringify(validMessages), {
+                status: 200,
+                headers: Object.assign({ 'Content-Type': 'application/json' }, corsHeaders())
             });
         }
 
