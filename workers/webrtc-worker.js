@@ -18,6 +18,74 @@ export default {
         }
 
         const url = new URL(request.url);
+        const pathname = url.pathname;
+
+        // Cloudflare Calls API Proxy
+        if (pathname.startsWith('/calls')) {
+            const appId = env.CF_CALLS_APP_ID;
+            const appToken = env.CF_CALLS_APP_TOKEN;
+
+            if (!appId || !appToken) {
+                return new Response(JSON.stringify({ error: 'Cloudflare Calls credentials not configured' }), {
+                    status: 500,
+                    headers: Object.assign({ 'Content-Type': 'application/json' }, corsHeaders())
+                });
+            }
+
+            // 1. Create Session
+            if (request.method === 'POST' && pathname === '/calls/session') {
+                const res = await fetch(`https://rtc.live.cloudflare.com/v1/apps/${appId}/sessions/new`, {
+                    method: 'POST',
+                    headers: {
+                        'Authorization': `Bearer ${appToken}`,
+                    }
+                });
+                const data = await res.json();
+                return new Response(JSON.stringify(data), {
+                    status: res.status,
+                    headers: Object.assign({ 'Content-Type': 'application/json' }, corsHeaders())
+                });
+            }
+
+            // 2. Renegotiate (Publish/Subscribe)
+            // Path: /calls/sessions/:sessionId/renegotiate
+            const renegMatch = pathname.match(/\/calls\/sessions\/([^\/]+)\/renegotiate/);
+            if (request.method === 'POST' && renegMatch) {
+                const sessionId = renegMatch[1];
+                const body = await request.json(); // { sdp, tracks }
+
+                // Exchange SDP with Cloudflare
+                const res = await fetch(`https://rtc.live.cloudflare.com/v1/apps/${appId}/sessions/${sessionId}/renegotiate`, {
+                    method: 'PUT',
+                    headers: {
+                        'Authorization': `Bearer ${appToken}`,
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({
+                        sessionDescription: {
+                            type: 'offer',
+                            sdp: body.sdp
+                        },
+                        tracks: body.tracks
+                    })
+                });
+
+                const data = await res.json();
+                // Cloudflare returns { sessionDescription: { type: 'answer', sdp: ... } }
+                // We return simplified { sdp: ... }
+                let responseData = data;
+                if (data.sessionDescription) {
+                    responseData = { sdp: data.sessionDescription.sdp };
+                }
+
+                return new Response(JSON.stringify(responseData), {
+                    status: res.status,
+                    headers: Object.assign({ 'Content-Type': 'application/json' }, corsHeaders())
+                });
+            }
+
+            return new Response('Not found', { status: 404, headers: corsHeaders() });
+        }
 
         // POST: 메시지 저장 (Signaling)
         if (request.method === 'POST') {

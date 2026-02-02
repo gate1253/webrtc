@@ -23,6 +23,8 @@ jobs:
         env:
           CF_ACCOUNT_ID: ${{ secrets.CF_ACCOUNT_ID }}
           WEBRTC_KV: ${{ secrets.WEBRTC_KV }}
+          CF_CALLS_APP_ID: ${{ secrets.CF_CALLS_APP_ID }}
+          CF_CALLS_APP_TOKEN: ${{ secrets.CF_CALLS_APP_TOKEN }}
         run: |
           cat > wrangler.toml <<EOF
           name = "webrtc"
@@ -33,6 +35,10 @@ jobs:
           kv_namespaces = [
             { binding = "WEBRTC_KV", id = "${WEBRTC_KV}" }
           ]
+
+          [vars]
+          CF_CALLS_APP_ID = '${CF_CALLS_APP_ID}'
+          CF_CALLS_APP_TOKEN = '${CF_CALLS_APP_TOKEN}'
           EOF
           echo "wrangler.toml created."
 
