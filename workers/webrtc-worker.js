@@ -47,12 +47,43 @@ export default {
                 });
             }
 
-            // 2. Renegotiate (Publish/Subscribe)
+            // 2. Add Tracks (Subscribing or initiating publishing)
+            // Path: /calls/sessions/:sessionId/tracks/new
+            const tracksNewMatch = pathname.match(/\/calls\/sessions\/([^\/]+)\/tracks\/new/);
+            if (request.method === 'POST' && tracksNewMatch) {
+                const sessionId = tracksNewMatch[1];
+                const body = await request.json(); // { sessionDescription, tracks }
+
+                const res = await fetch(`https://rtc.live.cloudflare.com/v1/apps/${appId}/sessions/${sessionId}/tracks/new`, {
+                    method: 'POST',
+                    headers: {
+                        'Authorization': `Bearer ${appToken}`,
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify(body)
+                });
+
+                const data = await res.json();
+                return new Response(JSON.stringify(data), {
+                    status: res.status,
+                    headers: Object.assign({ 'Content-Type': 'application/json' }, corsHeaders())
+                });
+            }
+
+            // 3. Renegotiate (Complete offer/answer)
             // Path: /calls/sessions/:sessionId/renegotiate
             const renegMatch = pathname.match(/\/calls\/sessions\/([^\/]+)\/renegotiate/);
             if (request.method === 'POST' && renegMatch) {
                 const sessionId = renegMatch[1];
-                const body = await request.json(); // { sdp, tracks }
+                const body = await request.json(); // { sdp, type, tracks, sessionDescription }
+
+                const payload = {
+                    sessionDescription: body.sessionDescription || {
+                        type: body.type || 'offer',
+                        sdp: body.sdp
+                    },
+                    tracks: body.tracks
+                };
 
                 // Exchange SDP with Cloudflare
                 const res = await fetch(`https://rtc.live.cloudflare.com/v1/apps/${appId}/sessions/${sessionId}/renegotiate`, {
@@ -61,24 +92,12 @@ export default {
                         'Authorization': `Bearer ${appToken}`,
                         'Content-Type': 'application/json'
                     },
-                    body: JSON.stringify({
-                        sessionDescription: {
-                            type: body.type || 'offer',
-                            sdp: body.sdp
-                        },
-                        tracks: body.tracks
-                    })
+                    body: JSON.stringify(payload)
                 });
 
                 const data = await res.json();
-                // Cloudflare returns { sessionDescription: { type: 'answer', sdp: ... } }
-                // We return simplified { sdp: ... }
-                let responseData = data;
-                if (data.sessionDescription) {
-                    responseData = { sdp: data.sessionDescription.sdp };
-                }
-
-                return new Response(JSON.stringify(responseData), {
+                // Return original data structure for smarter client processing
+                return new Response(JSON.stringify(data), {
                     status: res.status,
                     headers: Object.assign({ 'Content-Type': 'application/json' }, corsHeaders())
                 });
