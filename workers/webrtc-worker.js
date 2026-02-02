@@ -63,7 +63,7 @@ export default {
                     },
                     body: JSON.stringify({
                         sessionDescription: {
-                            type: 'offer',
+                            type: body.type || 'offer',
                             sdp: body.sdp
                         },
                         tracks: body.tracks
