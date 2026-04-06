@@ -84,7 +84,30 @@ export default {
                 });
             }
 
-            // 3. Renegotiate (Complete offer/answer)
+            // 3. Close Tracks
+            // Path: /calls/sessions/:sessionId/tracks/close
+            const tracksCloseMatch = pathname.match(/\/calls\/sessions\/([^\/]+)\/tracks\/close/);
+            if (request.method === 'PUT' && tracksCloseMatch) {
+                const sessionId = tracksCloseMatch[1];
+                const body = await request.json();
+
+                const res = await fetch(`https://rtc.live.cloudflare.com/v1/apps/${appId}/sessions/${sessionId}/tracks/close`, {
+                    method: 'PUT',
+                    headers: {
+                        'Authorization': `Bearer ${appToken}`,
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify(body)
+                });
+
+                const data = await res.json();
+                return new Response(JSON.stringify(data), {
+                    status: res.status,
+                    headers: Object.assign({ 'Content-Type': 'application/json' }, corsHeaders())
+                });
+            }
+
+            // 4. Renegotiate (Complete offer/answer)
             // Path: /calls/sessions/:sessionId/renegotiate
             const renegMatch = pathname.match(/\/calls\/sessions\/([^\/]+)\/renegotiate/);
             if (request.method === 'POST' && renegMatch) {
