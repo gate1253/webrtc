@@ -1,4 +1,6 @@
 // d:\workspace\gate1253\webrtc\workers\webrtc-worker.js
+import { SignalingRoom } from './signaling-do.js';
+
 
 // CORS 유틸리티 함수
 function corsHeaders() {
@@ -19,6 +21,18 @@ export default {
 
         const url = new URL(request.url);
         const pathname = url.pathname;
+
+        // WebSocket Signaling (Durable Objects)
+        if (pathname === '/ws/join') {
+            const room = url.searchParams.get('room');
+            if (!room) return new Response('Missing room', { status: 400 });
+
+            const id = env.SIGNALING_ROOM.idFromName(room);
+            const obj = env.SIGNALING_ROOM.get(id);
+
+            return obj.fetch(request);
+        }
+
 
         // Cloudflare Calls API Proxy
         if (pathname.startsWith('/calls')) {
@@ -170,3 +184,7 @@ export default {
         return new Response('Not found', { status: 404, headers: corsHeaders() });
     }
 };
+
+// Durable Object 클래스 익스포트 (Wrangler 바인딩용)
+export { SignalingRoom };
+
